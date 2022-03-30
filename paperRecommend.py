@@ -81,18 +81,21 @@ def send_mail(content):
     mail_pass = config.get('mail', 'pass')
     sender = mail_user
     receivers = config.get('mail', 'receivers').split(',')
+    print(receivers)
 
     # 设置 emil 信息
     # 邮件内容设置
     text = content
     message = MIMEText(text, 'plain', 'utf-8')
     # 邮件主题
-    message['Subject'] = '来自龙龙 每日邮件订阅（arxiv）'
+    message['Subject'] = config.get('mail','arxiv_subject')
     # 发送方信息
     message['From'] = sender
     # 接收方信息
     for receiver in receivers:
+        print(receiver)
         message['To'] = receiver
+        logger.info(f'正在给 {receiver} 发送邮件…… {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
 
         # 登录发送
         try:
@@ -105,7 +108,7 @@ def send_mail(content):
             smtpObj.login(mail_user, mail_pass)
             # 发送
             smtpObj.sendmail(
-                sender,receivers,message.as_string()
+                sender,receiver,message.as_string()
             )
             # 退出
             smtpObj.quit()
@@ -139,8 +142,8 @@ if __name__ == '__main__' :
         raise FileNotFoundError('config file not Exist')
     config = ConfigParser()
     config.read(config_path, encoding='utf-8')
-    # schedule.every().day.at('22:00').do(main)
-    schedule.every().minute.do(arxiv_main)
+    schedule.every().day.at('22:00').do(arxiv_main)
+    # schedule.every().minute.do(arxiv_main)
 
     while True:
         schedule.run_pending()
