@@ -1,0 +1,7 @@
+[Unit]
+Description=Paper recommend Service
+
+
+[Service]
+ExecStart=/home/yl-lab/usoftware/paperRecommend/EnvPaper/bin/python /home/yl-lab/usoftware/paperRecommend/paperRecommend.py
+WorkingDirectory=/home/yl-lab/usoftware/paperRecommend
