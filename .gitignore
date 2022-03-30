@@ -1,0 +1,12 @@
+# 忽略配置文件
+*.ini
+
+# 忽略 python 环境
+/EnvPaper
+
+# 忽略 nohup日志
+*.out
+
+# 忽略程序日志
+*.log
+
