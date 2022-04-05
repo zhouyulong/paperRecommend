@@ -8,6 +8,7 @@ import time
 from loguru import logger
 from configparser import ConfigParser
 import os
+import json
 
 
 class ArxivReList():
@@ -17,6 +18,47 @@ class ArxivReList():
         self.authors = []
         self.abstract = ''
         self.submitted_date = ''
+
+
+# 配置信息
+class Configure():
+
+    def __init__(self):
+        self.mail_host = ''
+        self.mail_user = ''
+        self.mail_password = ''
+        self.mail_receivers = []
+        self.mail_subjects = []
+        self.paper_keywords = {}
+        config_path = 'paperConfig.ini'
+        if not os.path.exists(config_path):
+            raise FileNotFoundError('config file not Exist')
+        self.config = ConfigParser()
+        self.config.read(config_path, encoding='utf-8')
+
+    def get_mail_config(self):
+        mail = {}
+        try:
+            mail['host'] = self.config['mail']['host']
+            mail['user'] = self.config['mail']['user']
+            mail['password'] = self.config['mail']['pass']
+            mail['receivers'] = self.config['mail']['receivers']
+        except Exception as e:
+            print(f'Exception: {e} --- {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
+        finally:
+            pass
+        return mail
+
+    def get_paper_config(self):
+        paper = {}
+        try:
+            keywords = json.loads(self.config['paper']['keywords'])
+            paper['keywords'] = keywords
+        except Exception as e:
+            print(f'Exception: {e} --- {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
+        finally:
+            pass
+        return paper
 
 
 # 分析每 arxiv 一个结果
@@ -38,8 +80,8 @@ def result_context_analyse(find_result):
     author_list.remove('')
     try:
         author_list.remove(',')
-    except Exception:
-        pass
+    except Exception as e:
+        print(f'author_list error: {e} --- {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
     finally:
         pass
     author_list.remove('Authors:')
@@ -74,76 +116,74 @@ def get_new_paper_from_arxiv(key_words):
     return results
 
 
-def send_mail(content):
+def send_mail(content, subject='无主题'):
+    mail_config = config.get_mail_config()
     # 设置服务器信息
-    mail_host = config.get('mail', 'host')
-    mail_user = config.get('mail', 'user')
-    mail_pass = config.get('mail', 'pass')
+    mail_host = mail_config['host']
+    mail_user = mail_config['user']
+    mail_pass = mail_config['password']
     sender = mail_user
-    receivers = config.get('mail', 'receivers').split(',')
-    print(receivers)
+    # receivers = config.get('mail', 'receivers').split(',')
+    receivers = mail_config['receivers'].split(',')
 
     # 设置 emil 信息
     # 邮件内容设置
     text = content
     message = MIMEText(text, 'plain', 'utf-8')
     # 邮件主题
-    message['Subject'] = config.get('mail','arxiv_subject')
+    message['Subject'] = subject
     # 发送方信息
     message['From'] = sender
     # 接收方信息
-    for receiver in receivers:
-        print(receiver)
-        message['To'] = receiver
-        logger.info(f'正在给 {receiver} 发送邮件…… {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
-
-        # 登录发送
-        try:
-            # smtpObj = smtplib.SMTP()
-            # # 连接服务器
-            # smtpObj.connect(mail_host, 587)
-            # qq 邮箱需要使用 smtp_ssl
-            smtpObj = smtplib.SMTP_SSL(mail_host,465)
+    try:
+        for receiver in receivers:
+            message['To'] = receiver
+            print('-------receiver----------', receiver)
+            smtpObj = smtplib.SMTP_SSL(mail_host, 465)
             # 登录
             smtpObj.login(mail_user, mail_pass)
             # 发送
             smtpObj.sendmail(
-                sender,receiver,message.as_string()
+                sender, receiver, message.as_string()
             )
-            # 退出
-            smtpObj.quit()
             print('邮件发送成功')
-            logger.info(f' 发送邮件成功 {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
-        except smtplib.SMTPException as e:
-            print('error: ', e)
-            logger.info(f' 发送邮件失败 {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
+            logger.info(f' 发送邮件成功 -- {receiver} -- {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
+    except smtplib.SMTPException as e:
+        print(f'send mail err: {e} -- {receiver} --{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
+        logger.info(f'send mail err: {e} -- {receiver} --{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
+    finally:
+        # 退出
+        smtpObj.quit()
+        print('邮件登出')
+        logger.info(f'邮件登出 {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
 
 
 def arxiv_main():
-    key_words = config.get('paper', 'keywords').split(',')
-    result = get_new_paper_from_arxiv(key_words)
-    content = []
-    index = 0
-    for i in result:
-        index += 1
-        urls = [':'.join(list(url)) for url in i.url.items()]
-        temp = f'第 {index} 篇\n'+ '标题： ' + i.title + '\n' +'作者： '+ ';'.join(i.authors) + '\n' +'摘要： '+ i.abstract + '\n' +'日期： '+ i.submitted_date + '\n'+ '链接： ' + ' -- '.join(urls) + '\n' +'-----------------------\n'
-        content.append(temp)
+    # key_words = config.get('paper', 'keywords').split(',')
+    paper_config = config.get_paper_config()
+    key_words = paper_config['keywords']['arxiv']
+    for words in key_words:
+        result = get_new_paper_from_arxiv(words)
+        content = []
+        index = 0
+        for i in result:
+            index += 1
+            urls = [':'.join(list(url)) for url in i.url.items()]
+            temp = f'第 {index} 篇\n' + '标题： ' + i.title + '\n' + '作者： ' + ';'.join(i.authors) + '\n' +'摘要： '+ i.abstract + '\n' +'日期： '+ i.submitted_date + '\n'+ '链接： ' + ' -- '.join(urls) + '\n' +'-----------------------\n'
+            content.append(temp)
 
-    send_mail(''.join(content))
+        mail_subject = f'每日订阅(arxiv) -- {" ".join(words)}'
+        send_mail(''.join(content), mail_subject)
 
 
 if __name__ == '__main__' :
     logger.add('paperRecommending.log')
     logger.info(f'邮件服务启动 {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
-
-    config_path = 'paperConfig.ini'
-    if not os.path.exists(config_path):
-        raise FileNotFoundError('config file not Exist')
-    config = ConfigParser()
-    config.read(config_path, encoding='utf-8')
-    schedule.every().day.at('22:00').do(arxiv_main)
-    # schedule.every().minute.do(arxiv_main)
+    config = Configure()
+    # print('mail_host: ', test_config.mail_host)
+    # print('mail_host: ', test_config.mail_host)
+    # schedule.every().day.at('22:00').do(main)
+    schedule.every().minute.do(arxiv_main)
 
     while True:
         schedule.run_pending()
