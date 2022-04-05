@@ -182,8 +182,8 @@ if __name__ == '__main__' :
     config = Configure()
     # print('mail_host: ', test_config.mail_host)
     # print('mail_host: ', test_config.mail_host)
-    # schedule.every().day.at('22:00').do(main)
-    schedule.every().minute.do(arxiv_main)
+    schedule.every().day.at('22:00').do(arxiv_main)
+    # schedule.every().minute.do(arxiv_main)
 
     while True:
         schedule.run_pending()
