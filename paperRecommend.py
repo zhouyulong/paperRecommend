@@ -71,7 +71,7 @@ def result_context_analyse(find_result):
 
     # get title
     title = find_result.find(class_='title')
-    result.title = ''.join([i.strip() for i in list(title.strings)])
+    result.title = ' '.join([i.strip() for i in list(title.strings)])
 
     # get authors
     authors_context = find_result.find(class_='authors')
